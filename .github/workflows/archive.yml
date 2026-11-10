@@ -12,6 +12,10 @@ on:
         description: "Deploy the archive even if no day was added"
         type: boolean
         default: false
+      upto:
+        description: "Deploy only the years up to this one (filling a new site in steps: GitHub syncs a deploy's new files within 10 minutes)"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -49,6 +53,23 @@ jobs:
           git --work-tree=site add -A
           commit=$(echo "Archive through $(date -u +%F)" | git commit-tree "$(git write-tree)")
           git push --force origin "${commit}:refs/heads/site"
+
+      - name: Only the years up to ${{ inputs.upto }}
+        if: inputs.upto != ''
+        run: |
+          python3 - <<'PY'
+          import json, shutil
+          from pathlib import Path
+          upto = "${{ inputs.upto }}"
+          idx = json.loads(Path("site/index.json").read_text())
+          for d in Path("site/days").iterdir():
+              if d.name[:4] > upto:
+                  shutil.rmtree(d)
+          idx["dates"] = [x for x in idx["dates"] if x[:4] <= upto]
+          idx["cr"] = {k: v for k, v in idx["cr"].items() if k[:4] <= upto}
+          Path("site/index.json").write_text(json.dumps(idx, indent=1))
+          print(len(idx["dates"]), "days up to", upto)
+          PY
 
       - uses: actions/upload-pages-artifact@v5
         if: steps.run.outputs.changed == 'true' || inputs.deploy == true
