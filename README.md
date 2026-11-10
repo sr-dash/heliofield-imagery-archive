@@ -16,3 +16,8 @@ https://sr-dash.github.io/heliofield-imagery-archive/days/<date>/<id>.std.webp, 
 The daily site's `index.json` lists every date, with `archived` naming those served from here and `archive` giving this address, so readers find any date from one index. Images, methods and credits are described in [HelioField imagery](https://github.com/sr-dash/heliofield-imagery); please cite it ([doi:10.5281/zenodo.23935774](https://doi.org/10.5281/zenodo.23935774)) and credit the missions.
 
 MIT licence (code). Made by [Soumyaranjan Dash](https://sr-dash.github.io/).
+
+## Branches
+
+- `main`: the code and workflows.
+- `site`: the archived days and their index, as served. It is a single commit with no history, replaced whole by the workflow on each update, so the repository stays the size of what is on show instead of keeping every old file. It shares no history with `main` (GitHub calls them diverged) and is never merged into it; ignore any "Compare & pull request" banner for it.
