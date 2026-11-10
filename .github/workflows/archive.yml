@@ -1,0 +1,68 @@
+# Each week: copy into the archive any day that has aged out of the daily
+# site's 60-day window, one per Carrington rotation, and deploy the archive
+# to GitHub Pages only when it gained a day (about once a month).
+name: Archive
+
+on:
+  schedule:
+    - cron: "10 7 * * 1"
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Deploy the archive even if no day was added"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: archive
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    outputs:
+      deploy: ${{ steps.run.outputs.changed == 'true' || inputs.deploy == true }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: The archive as it is
+        run: |
+          mkdir -p site
+          if git fetch --depth 1 origin site:refs/remotes/origin/site; then git archive origin/site | tar -x -C site; fi
+
+      - name: Add aged-out days
+        id: run
+        run: python3 archive.py --out site | tee archive.log; grep -E "^changed=" archive.log >> "$GITHUB_OUTPUT"
+
+      - name: Publish
+        if: steps.run.outputs.changed == 'true'
+        run: |
+          git config user.name "Soumyaranjan Dash"
+          git config user.email "sdash@nso.edu"
+          export GIT_INDEX_FILE="$RUNNER_TEMP/site-index"
+          git --work-tree=site add -A
+          commit=$(echo "Archive through $(date -u +%F)" | git commit-tree "$(git write-tree)")
+          git push --force origin "${commit}:refs/heads/site"
+
+      - uses: actions/upload-pages-artifact@v5
+        if: steps.run.outputs.changed == 'true' || inputs.deploy == true
+        with:
+          path: site
+
+  deploy:
+    needs: archive
+    if: needs.archive.outputs.deploy == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5
